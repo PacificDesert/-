@@ -1,0 +1,204 @@
+package game.framework;
+
+import game.debug.PerformanceTiming;
+import game.input.Keyboard;
+import game.input.Mouse;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.image.BufferStrategy;
+import java.awt.image.VolatileImage;
+
+public abstract class Game extends JFrame
+{
+    private Canvas canvas;
+    private BufferStrategy buffer;
+    private GraphicsEnvironment ge;
+    private GraphicsDevice gd;
+    private GraphicsConfiguration gc;
+    private VolatileImage vi;
+    private int width;
+    private int height;
+    private boolean running;
+    private Color background;
+    private GameTime gameTime;
+    protected PerformanceTiming fps;
+
+    public Game(String title, int width, int height)
+    {
+        this.setTitle(title);
+        this.fps = new PerformanceTiming();
+        this.width = width;
+        this.height = height;
+    }
+
+    public Game(int width, int height)
+    {
+        this("Game", width, height);
+    }
+
+    public Game(String title)
+    {
+        this(title, 640, 480);
+    }
+
+    public Game()
+    {
+        this("Game", 640, 480);
+    }
+
+    public final void run()
+    {
+        try
+        {
+            createWindow();
+            initialize();
+            gameLoop();
+        }
+        catch(Exception ex)
+        {
+            ex.printStackTrace();
+        }
+        finally
+        {
+            System.exit(0);
+        }
+    }
+
+    public final void gameLoop()
+    {
+        Graphics graphics = null;
+        Graphics2D g2d = null;
+        loadContent();
+        gameTime.reset();
+        while(running)
+        {
+            try
+            {
+                gameTime.tick();
+                update(gameTime);
+                g2d = vi.createGraphics();
+                draw(g2d);
+                Toolkit.getDefaultToolkit().sync();
+                graphics = buffer.getDrawGraphics();
+                graphics.drawImage(vi, 0, 0, null);
+                if(!buffer.contentsLost())
+                  buffer.show();
+                Thread.yield();
+            }
+            finally
+            {
+                if(graphics != null)
+                    graphics.dispose();
+                if(g2d != null)
+                    g2d.dispose();
+            }
+        }
+    }
+
+    public static void exitGame(int errorCode)
+    {
+        switch(errorCode)
+        {
+            case 0:
+                System.out.println("Game exited successfully.");
+                break;
+            case -1:
+                System.out.println("Game exited unexpectedly.");
+                break;
+            default:
+                System.out.println("Unknown exit status...");
+                System.out.println("Quitting..");
+                break;
+        }
+        System.out.println("Exit Code: " + errorCode);
+        System.exit(errorCode);
+    }
+
+    public static void exitGame()
+    {
+        Game.exitGame(0);
+    }
+
+    private void createWindow()
+    {
+        this.setIgnoreRepaint(true);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        this.setResizable(false);
+        this.canvas = new Canvas();
+        this.canvas.setIgnoreRepaint(true);
+        this.canvas.setSize(width, height);
+        this.canvas.setPreferredSize(new Dimension(width, height));
+        this.add(canvas);
+        this.pack();
+        this.setVisible(true);
+        this.requestFocus();
+        this.canvas.createBufferStrategy(2);
+        this.buffer = canvas.getBufferStrategy();
+        this.ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        this.gd = ge.getDefaultScreenDevice();
+        this.gc = gd.getDefaultConfiguration();
+        this.vi = gc.createCompatibleVolatileImage(width, height);
+        GameHelper.setWindow(this);
+        GameHelper.setScreenWidth(width);
+        GameHelper.setScreenHeight(height);
+    }
+
+    public final void setBackgroundColor(Color background)
+    {
+        this.background = background;
+    }
+
+    public final Color getBackgroundColor()
+    {
+        return this.background;
+    }
+
+    public final void setWidth(int width)
+    {
+        this.width = width;
+        GameHelper.setScreenWidth(width);
+    }
+
+    public final void setHeight(int height)
+    {
+        this.height = height;
+        GameHelper.setScreenHeight(height);
+    }
+
+    public final void setDimensions(int width, int height)
+    {
+        this.setWidth(width);
+        this.setHeight(height);
+    }
+
+    public abstract void loadContent();
+    public abstract void unloadContent();
+
+    public void update(GameTime gameTime)
+    {
+        Keyboard.poll();
+        Mouse.poll();
+    }
+
+    public void initialize()
+    {
+        running = true;
+        background = (background == null) ? background = new Color(100, 149, 237) : background;
+        this.addKeyListener(Keyboard.keyboard);
+        this.canvas.addKeyListener(Keyboard.keyboard);
+        this.canvas.addMouseListener(Mouse.mouse);
+        this.canvas.addMouseMotionListener(Mouse.mouse);
+        gameTime = new GameTime();
+        FontHelper.initialize();
+    }
+
+    public void draw(Graphics2D g2d)
+    {
+        g2d.setColor(background);
+        g2d.fillRect(0, 0, width, height);
+        g2d.setColor(Color.WHITE);
+        g2d.setFont(new Font("Arial", Font.BOLD, 24));
+        g2d.drawString("Welcome to the Game! ZKJ", 200, 250);
+    }
+}
